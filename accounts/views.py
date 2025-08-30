@@ -12,7 +12,7 @@ from jobs.models import Job, JobApplicant
 def signup_view(request):
     if request.user.is_authenticated:
         messages.info(request, 'You are already signed in.')
-        return redirect('home')
+        return redirect('base')
 
     if request.method == 'POST':
         email = request.POST.get('email', '').strip()
@@ -75,21 +75,54 @@ def signup_view(request):
             return render(request, 'auth/signup.html', {'email': email, 'username': username})
     return render(request, 'auth/signup.html')
 def signin_view(request):
-    if request.method == 'POST':
+    if request.method == 'POST' or None:
         email = request.POST.get('email')
         password = request.POST.get('password')
         user = authenticate(request, email=email, password=password)
+
         if user is not None:
             login(request, user)
             if not Profile.objects.filter(user=user).exists():
-                print('User does not have a profile.')
-            print('User has a profile.')
+                return redirect('auth:profile_create')
+            else:
+                return redirect('base')
         else:
             messages.error(request, 'Invalid email or password')
     return render(request, 'auth/signin.html')
 
 def profile_create_view(request):
-    pass
+    if not request.user.is_authenticated:
+        messages.error(request, 'Please sign in first.')
+        return redirect('auth:signin')
+    
+    if not Profile.objects.filter(user=request.user).exists():
+        if request.method == 'POST' or None:
+            firstname = request.POST.get('firstname', '').strip()
+            lastname = request.POST.get('lastname', '').strip()
+            bio = request.POST.get('bio', '').strip()
+            profile_picture = request.FILES.get('profile_picture')
+            profile = authenticate(request, firstname=firstname, lastname=lastname, profile_picture=profile_picture)
+        
+            if not all([firstname, lastname, profile_picture]):
+                messages.error(request, 'Please enter firstname, lastname, and profile picture.')
+                return render(request, 'auth/profile_create.html', {
+                    'firstname': firstname,
+                    'lastname': lastname,
+                    'profile_picture': profile_picture,
+
+                })
+
+            profile = Profile.objects.create(
+            user=request.user,
+            firstname=firstname,
+            lastname=lastname,
+            bio=bio,
+            profile_picture=profile_picture,
+        )
+        return redirect('posts:post-list')
+    return render(request, 'auth/profile_create.html')
+
+        
 def profile_view(request):
     if not request.user.is_authenticated:
         messages.error(request, 'Please sign in first.')
